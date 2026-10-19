@@ -72,24 +72,42 @@
   );
   $$(".reveal").forEach((el) => revealer.observe(el));
 
-  /* ---------- Hero stat counters ---------- */
+  /* ---------- Hero stat counters ----------
+     The HTML already holds the final values, so they show without JS.
+     Here we reset them to 0 and count up once the stats scroll into view. */
+  const counters = $$("[data-count]");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const formatCount = (el, n) => {
+    const decimals = parseInt(el.dataset.decimals || "0", 10);
+    return n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  };
+
   const animateCount = (el) => {
     const target = parseFloat(el.dataset.count);
-    const decimals = parseInt(el.dataset.decimals || "0", 10);
     const suffix = el.dataset.suffix || "";
     const duration = 1800;
     const start = performance.now();
-    const fmt = (n) => n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
     const tick = (now) => {
       const p = Math.min((now - start) / duration, 1);
       const eased = 1 - Math.pow(1 - p, 4);
-      el.textContent = fmt(target * eased) + (p === 1 ? suffix : "");
+      el.textContent = formatCount(el, target * eased) + (p === 1 ? suffix : "");
       if (p < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   };
-  setTimeout(() => $$("[data-count]").forEach(animateCount), 900);
+
+  if (!reduceMotion && counters.length) {
+    counters.forEach((el) => (el.textContent = formatCount(el, 0)));
+    const counterObserver = new IntersectionObserver((entries, obs) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      obs.disconnect();
+      // wait for the hero fade-in on first load, start right away if scrolled to later
+      setTimeout(() => counters.forEach(animateCount), Math.max(0, 900 - performance.now()));
+    });
+    counterObserver.observe(counters[0].closest(".hero__stats"));
+  }
 
   /* ---------- Gallery lightbox ---------- */
   const lightbox = document.createElement("div");
